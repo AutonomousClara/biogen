@@ -8,7 +8,10 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { apiKey, messages } = body;
+    const { apiKey: bodyApiKey, messages } = body;
+    
+    // Usa a key do servidor se disponível, senão usa a do body (BYOK)
+    const apiKey = process.env.GROQ_API_KEY || bodyApiKey;
 
     if (!apiKey || !messages) {
       return NextResponse.json(
