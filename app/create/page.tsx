@@ -23,30 +23,50 @@ interface FormData {
 export default function CreatePage() {
   const router = useRouter();
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [hasServerKey, setHasServerKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bio, setBio] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFormData, setLastFormData] = useState<FormData | null>(null);
   const [showConfig, setShowConfig] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const key = getApiKey();
-    if (!key) {
+    async function checkAccess() {
+      const key = getApiKey();
+      if (key) {
+        setApiKey(key);
+        setReady(true);
+        return;
+      }
+
+      // Verifica se servidor tem key
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        if (data.hasServerKey) {
+          setHasServerKey(true);
+          setReady(true);
+          return;
+        }
+      } catch (e) {}
+
+      // Nenhuma key disponível
       router.push("/start");
-    } else {
-      setApiKey(key);
     }
+
+    checkAccess();
   }, [router]);
 
   const handleGenerate = async (formData: FormData) => {
-    if (!apiKey || !formData.network || !formData.vibe) return;
+    if ((!apiKey && !hasServerKey) || !formData.network || !formData.vibe) return;
 
     setLastFormData(formData);
     setLoading(true);
     setError(null);
 
     const result = await generateBio({
-      apiKey,
+      apiKey: apiKey || "", // Se vazio, backend usa a key do servidor
       network: formData.network,
       name: formData.name,
       profession: formData.profession,
@@ -86,8 +106,12 @@ export default function CreatePage() {
     }
   };
 
-  if (!apiKey) {
-    return null; // Loading while redirecting
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-400 animate-pulse">Carregando...</div>
+      </div>
+    );
   }
 
   return (
@@ -98,14 +122,16 @@ export default function CreatePage() {
             <span className="text-2xl font-bold gradient-text">BioGen</span>
             <span className="text-xl">✨</span>
           </Link>
-          <button
-            onClick={handleConfigClick}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
-            aria-label="Configurações"
-            title="Alterar API Key"
-          >
-            ⚙️
-          </button>
+          {apiKey && (
+            <button
+              onClick={handleConfigClick}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Configurações"
+              title="Alterar API Key"
+            >
+              ⚙️
+            </button>
+          )}
         </div>
       </header>
 
